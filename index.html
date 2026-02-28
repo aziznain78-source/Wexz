@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WEXZ - Mini Social Media</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial;background:#fff;color:#000}
+header{position:fixed;top:0;left:0;right:0;height:55px;background:#000;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 10px;z-index:10}
+header .left{font-size:22px;cursor:pointer}
+header img{width:32px;height:32px;border-radius:50%}
+#feed{margin-top:60px;margin-bottom:70px;padding:10px}
+.post{border:1px solid #ccc;border-radius:10px;margin-bottom:15px;overflow:hidden}
+.post img,.post video{width:100%;max-height:350px;object-fit:cover}
+.actions{display:flex;justify-content:space-around;padding:6px}
+.actions button{border:none;background:#000;color:#fff;padding:6px 10px;border-radius:6px}
+footer{position:fixed;bottom:0;left:0;right:0;height:60px;background:#000;display:flex}
+footer button{flex:1;background:none;border:none;color:white;font-size:16px}
+#loginBox{position:fixed;top:0;left:0;right:0;bottom:0;background:#000;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#loginBox input,#loginBox button{width:80%;padding:10px;margin:6px;border-radius:8px;border:none}
+#loginBox img{width:70px;height:70px;border-radius:50%;margin:5px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="left" onclick="confirmLogout()">⎋</div>
+  <div>WEXZ</div>
+  <div class="right">
+    <span id="userName"></span>
+    <img id="avatarTop">
+  </div>
+</header>
+
+<div id="feed"></div>
+
+<footer>
+  <button onclick="uploadPhoto()">📷</button>
+  <button onclick="uploadVideo()">🎥</button>
+</footer>
+
+<div id="loginBox">
+  <h2>Login / Daftar WEXZ</h2>
+  <img id="previewAvatar" src="https://i.imgur.com/6VBx3io.png">
+  <input type="file" accept="image/*" onchange="pickAvatar(event)">
+  <input id="user" placeholder="Username">
+  <input id="pass" type="password" placeholder="Password">
+  <button onclick="login()">Login</button>
+  <button onclick="register()">Daftar</button>
+</div>
+
+<script>
+let users=JSON.parse(localStorage.getItem("users")||"[]");
+let posts=JSON.parse(localStorage.getItem("posts")||"[]");
+let currentUser=localStorage.getItem("currentUser");
+let avatarTemp="";
+
+const feed=document.getElementById("feed");
+const loginBox=document.getElementById("loginBox");
+const userName=document.getElementById("userName");
+const avatarTop=document.getElementById("avatarTop");
+
+if(currentUser){
+  loginBox.style.display="none";
+  let u=users.find(x=>x.u===currentUser);
+  userName.innerText=currentUser;
+  avatarTop.src=u.avatar||\"https://i.imgur.com/6VBx3io.png\";
+  renderFeed();
+}
+
+function pickAvatar(e){
+  let file=e.target.files[0];
+  let r=new FileReader();
+  r.onload=()=>{
+    avatarTemp=r.result;
+    document.getElementById(\"previewAvatar\").src=avatarTemp;
+  }
+  r.readAsDataURL(file);
+}
+
+function register(){
+  let u=user.value.trim(),p=pass.value.trim();
+  if(!u||!p) return alert(\"Isi semua\");
+  if(users.find(x=>x.u===u)) return alert(\"Akun sudah ada\");
+  users.push({u,p,avatar:avatarTemp});
+  localStorage.setItem(\"users\",JSON.stringify(users));
+  alert(\"Akun dibuat!\");
+}
+
+function login(){
+  let u=user.value.trim(),p=pass.value.trim();
+  let f=users.find(x=>x.u===u&&x.p===p);
+  if(!f) return alert(\"Login gagal\");
+  localStorage.setItem(\"currentUser\",u);
+  location.reload();
+}
+
+function confirmLogout(){
+  if(confirm(\"Kamu yakin ingin keluar?\")) logout();
+}
+
+function logout(){
+  localStorage.removeItem(\"currentUser\");
+  location.reload();
+}
+
+function uploadPhoto(){pickFile(\"image/*\",\"image\")}
+function uploadVideo(){pickFile(\"video/*\",\"video\")}
+
+function pickFile(type,kind){
+  let input=document.createElement(\"input\");
+  input.type=\"file\";input.accept=type;
+  input.onchange=e=>savePost(e.target.files[0],kind);
+  input.click();
+}
+
+function savePost(file,type){
+  let r=new FileReader();
+  r.onload=()=>{
+    posts.unshift({user:currentUser,avatar:getAvatar(currentUser),type,data:r.result,like:0,dislike:0});
+    localStorage.setItem(\"posts\",JSON.stringify(posts));
+    renderFeed();
+  }
+  r.readAsDataURL(file);
+}
+
+function getAvatar(u){
+  let f=users.find(x=>x.u===u);
+  return f?f.avatar:\"https://i.imgur.com/6VBx3io.png\";
+}
+
+function renderFeed(){
+  feed.innerHTML=\"\";
+  posts.forEach((p,i)=>{
+    let div=document.createElement(\"div\");
+    div.className=\"post\";
+    div.innerHTML=`
+      ${p.type===\"image\"?`<img src='${p.data}'>`:`<video src='${p.data}' controls></video>`}
+      <div style='padding:6px;display:flex;align-items:center;gap:6px'>
+        <img src='${p.avatar}' style='width:28px;height:28px;border-radius:50%'>
+        <b>@${p.user}</b>
+      </div>
+      <div class='actions'>
+        <button onclick='like(${i})'>❤️ ${p.like}</button>
+        <button onclick='dislike(${i})'>💔 ${p.dislike}</button>
+      </div>
+    `;
+    feed.appendChild(div);
+  });
+}
+
+function like(i){posts[i].like++;save()}
+function dislike(i){posts[i].dislike++;save()}
+function save(){localStorage.setItem(\"posts\",JSON.stringify(posts));renderFeed()}
+</script>
+
+</body>
+</html>
